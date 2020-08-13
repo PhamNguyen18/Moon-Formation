@@ -842,45 +842,29 @@ struct reb_vec3d intersection_unit_vector(const struct reb_particle p1, const st
 
 struct reb_vec3d intersection(const struct reb_particle p1, const struct reb_particle p2) {
 	// Finds the collision point for two particles
-	// Might need to check which particle is closer/ further?
+	struct reb_vec3d u = intersection_unit_vector(p1, p2); // unit vector of intersection pt
 	struct reb_vec3d int_pt = {0}; // intersection point
-	double dx = p1.x - p2.x;
-	double dy = p1.y - p2.y; 
-	double dz = p1.z - p2.z;
-	double dist = sqrt(dx*dx + dy*dy + dz*dz);
-	//printf("p1x = %.e, p2x = %.e\n", p1.x, p2.x);
-	//printf("dist = %.e\n", dist);
 
-	// Unit vector
-	//double p1_dist = sqrt(p1.x*p1.x + p1.y*p1.y + p1.z*p1.z);
-	//double p2_dist = sqrt(p2.x*p2.x + p2.y*p2.y + p2.z*p2.z);
-	double ux = 0.0, uy = 0.0, uz =0.0;
+	double p1_dist = sqrt(p1.x*p1.x + p1.y*p1.y + p1.z*p1.z);
+	double p2_dist = sqrt(p2.x*p2.x + p2.y*p2.y + p2.z*p2.z);
+  double ux = 0, uy = 0, uz = 0;
 
-	ux = dx/dist*p1.r;
-	uy = dy/dist*p1.r;
-	uz = dz/dist*p1.r;
-	int_pt.x = ux + p1.x; 
-	int_pt.y = uy + p1.y; 
-	int_pt.z = uz + p1.z; 
-
-	/*
-	// Check logic here...
 	if (p2_dist > p1_dist) {
-		ux = dx/dist*p1.r;
-		uy = dy/dist*p1.r;
-		uz = dz/dist*p1.r;
+		ux = -u.x*p1.r;
+		uy = -u.y*p1.r;
+		uz = -u.z*p1.r;
 		int_pt.x = ux + p1.x; 
 		int_pt.y = uy + p1.y; 
 		int_pt.z = uz + p1.z; 
 	} else {
-		ux = dx/dist*p2.r;
-		uy = dy/dist*p2.r;
-		uz = dz/dist*p2.r;
+		ux = u.x*p2.r;
+		uy = u.y*p2.r;
+		uz = u.z*p2.r;
 		int_pt.x = ux + p2.x; 
 		int_pt.y = uy + p2.y; 
 		int_pt.z = uz + p2.z; 
 	}
-	*/	
+	
 	return int_pt;
 }
 
@@ -897,19 +881,11 @@ struct reb_vec3d barycentric_to_hill(struct reb_vec3d p, const double rhill, con
 	struct reb_vec3d hill_coords = {0};
 	double radius = sqrt(p.x*p.x + p.y*p.y);
 	double theta = atan2(p.y, p.x);
-	/*
-	printf("x = %.e4, y = %.e4\n", p.x, p.y);
-	printf("radius = %.e4\n", radius);
-	printf("theta = %.e4\n", theta);
-	printf("hill = %.e4\n", rhill);
-	printf("ref_dist = %.e4\n", ref_dist);
-	*/
 
 	hill_coords.x = (radius/ref_dist - 1) / rhill;
 	hill_coords.y = theta / rhill; 
 	hill_coords.z = p.z / (ref_dist*rhill);
 
-	//printf("hx = %.e4, hy = %.e4, hz = %.e4\n", hill_coords.x, hill_coords.y, hill_coords.z);
 	return hill_coords;
 }
 
@@ -925,7 +901,6 @@ struct reb_vec3d vel_barycentric_to_hill(const struct reb_particle p, const doub
 	vel_hill.y = vtheta / (rhill*omega);
 	vel_hill.z = p.vz / (ref_dist*rhill*omega);
 
-	//printf("hvx = %.e, hvy = %.e, hvz = %.e\n", vel_hill.x, vel_hill.y, vel_hill.z);
 	return vel_hill;
 }
 
@@ -963,9 +938,6 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	double veln_tot = veln.x*veln.x + veln.y*veln.y + veln.z*veln.z; 
 
 	double eps = effective_coefficient_of_restitution(r->eps_n, r->eps_t, veln_tot, velt_tot, vel_impact);
-	//printf("eps = %.e4 eps_n = %f eps_t = %f\n", eps, r->eps_n, r->eps_t);
-	//printf("V_tot = %.e4, v_n = %.e4, v_t = %.e4", vel_impact, veln_tot, velt_tot);
-	//printf("x = %.e4, y = %.e4, z = %.e4", pos.x, pos.y, pos.z);
 
 	// Check coefficient of resitution set up
 	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos.x*pos.x + 1/2*pos.z*pos.z - 3/((p1.r + p2.r)/rhill) + 9/2;
