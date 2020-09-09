@@ -876,50 +876,60 @@ double effective_coefficient_of_restitution(const double eps_n, const double vel
 	return sqrt((eps_n*eps_n*vel_n + eps_t*eps_t*vel_t) / (vel_impact));
 }
 
-struct reb_vec3d barycentric_to_hill(struct reb_vec3d p, const double rhill, const double ref_dist) {
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const double rhill) {
 	// Converts barycentric coordinates to Hill coordinates
 	struct reb_vec3d hill_coords = {0};
 	double radius = sqrt(p.x*p.x + p.y*p.y);
 	double theta = atan2(p.y, p.x);
 
-	hill_coords.x = (radius/ref_dist - 1) / rhill;
-	hill_coords.y = theta / rhill; 
-	hill_coords.z = p.z / (ref_dist*rhill);
+	hill_coords.x = radius - r->ref_dist; 
+	hill_coords.y = r->ref_dist * (theta - r->kepler_ang*r->t);
+	hill_coords.z = p.z;
 
 	return hill_coords;
 }
 
-struct reb_vec3d vel_barycentric_to_hill(const struct reb_particle p, const double rhill, const double ref_dist) {
+struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, 
+										 const struct reb_vec3d hill_pos, const double rhill) {
+    // Clean this up. Create variables instead of a lot of dereferences
 	// Converts velocity from barycentric to Hill units
 	struct reb_vec3d vel_hill = {0};
-	double vr = 0.0, vtheta = 0.0;
-	double omega = sqrt(6.67430e-11 * 5.9722e24 / pow(ref_dist, 3)); // make this a constant
+	double tau = 0.0, omega = 0.0; 
+	struct reb_orbit o = reb_tools_particle_to_orbit(r->G, p, r->particles[0]);
+	tau = -acos(((o.a-r->ref_dist) - hill_pos.x) / (o.e*r->ref_dist)) + r->kepler_ang*r->t;
+	omega = -asin(hill_pos.z / (o.inc*r->ref_dist)) + r->kepler_ang*r->t;
 
-	vr = (p.x*p.vx + p.y*p.vy) / sqrt(p.x*p.x + p.y*p.y);
-	vtheta = (p.x*p.vy - p.vx*p.y) / (p.x*p.x + p.y*p.y); // check velocity calculations
-	vel_hill.x = vr / (ref_dist*rhill*omega);
-	vel_hill.y = vtheta / (rhill*omega);
-	vel_hill.z = p.vz / (ref_dist*rhill*omega);
+	vel_hill.x = o.e*r->ref_dist*r->kepler_ang*sin(r->kepler_ang*r->t - tau);
+	vel_hill.y = r->kepler_ang * (-3/2*(o.a-r->ref_dist) + 2*o.e*r->ref_dist*cos(r->kepler_ang*r->t - tau));
+	vel_hill.z = o.inc*r->ref_dist*r->kepler_ang*cos(r->kepler_ang - omega);
 
 	return vel_hill;
 }
 
 double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist) {
+	// Hacky was to calculate impact point in Hill coordinates
+	// involving making that point a particle structure
 	struct reb_particle* const particles = r->particles;
 	struct reb_particle p1 = particles[c.p1];
 	struct reb_particle p2 = particles[c.p2];
+	struct reb_particle p_int = {0};
 	//printf("p1 %.e, %.e, %.e\n", p1.x, p1.y, p1.z);
 	//printf("p2 %.e, %.e, %.e\n", p2.x, p2.y, p2.z);
-	double rhill = hill_radius(p1, p2, particles[0]);
+	const double rhill = hill_radius(p1, p2, particles[0]);
 	struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2);
 	struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
 	struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
 	struct reb_vec3d intersect_pt = intersection(p1, p2);
+	p_int.x = intersect_pt.x;
+	p_int.y = intersect_pt.y;
+	p_int.z = intersect_pt.z;
 
 	// Calculate point of intersection and particle velocities in Hill coordinates
-	struct reb_vec3d pos = barycentric_to_hill(intersect_pt, rhill, ref_dist);
-	struct reb_vec3d vp1 = vel_barycentric_to_hill(p1, rhill, ref_dist);
-	struct reb_vec3d vp2 = vel_barycentric_to_hill(p2, rhill, ref_dist);
+	struct reb_vec3d pos_int = barycentric_to_hill(r, p_int, rhill); 
+	struct reb_vec3d pos1 = barycentric_to_hill(r, p1, rhill);
+	struct reb_vec3d pos2 = barycentric_to_hill(r, p2, rhill);
+	struct reb_vec3d vp1 = vel_barycentric_to_hill(r, p1, pos1, rhill);
+	struct reb_vec3d vp2 = vel_barycentric_to_hill(r, p2, pos2, rhill);
 	double e_jacobi = 0.0;
 	double dvx = vp1.x - vp2.x;
 	double dvy = vp1.y - vp2.y; 
@@ -940,7 +950,7 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	double eps = effective_coefficient_of_restitution(r->eps_n, r->eps_t, veln_tot, velt_tot, vel_impact);
 
 	// Check coefficient of resitution set up
-	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos.x*pos.x + 1/2*pos.z*pos.z - 3/((p1.r + p2.r)/rhill) + 9/2;
+	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos_int.x*pos_int.x + 1/2*pos_int.z*pos_int.z - 3/((p1.r + p2.r)/rhill) + 9/2;
 
 	return e_jacobi;	
 }

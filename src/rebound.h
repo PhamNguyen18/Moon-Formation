@@ -908,6 +908,8 @@ struct reb_simulation {
     double roche_limit;                 ///< Roche limit for system used for tidal merging routine.
     double eps_t;                       ///< Coefficient of restitution in the tangential direction.
     double eps_n;                       ///< Coefficient of restitution in the normal direction.
+    double kepler_ang;                  ///< Angular velocity 
+    double ref_dist;                    ///< Reference distance needed for Hill coordinates
     /** @} */
 
     /**
@@ -1332,22 +1334,23 @@ double effective_coefficient_of_restitution(const double eps_n, const double vel
 
 /**
  * @brief Converts barycentric coordinates to Hill coordinates.
+ * @param r Struct for simulation.
  * @param p Struct for particle.
  * @param rhill The Hill radius for the system.
- * @param ref_dist Reference distance to place the origin of the Hill coordinates.
  * @return Hill coordinates of the particle.
  */
 
-struct reb_vec3d barycentric_to_hill(struct reb_vec3d p, const double rhill, const double ref_dist);
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const double rhill);
 
 /**
  * @brief Converts the velocity of a particle in barycentric coordinates to Hill.
+ * @param r Struct for simulation.
  * @param p Struct for particle.
+ * @param hill_pos Hill coordinates for particle.
  * @param rhill The Hill radius for the system.
- * @param ref_dist Reference distance to place the origin of the Hill coordinates.
  * @return Velocity in the Hill coordinate system. 
  */
-struct reb_vec3d vel_barycentric_to_hill(const struct reb_particle p, const double rhill, const double ref_dist);
+struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const struct reb_vec3d hill_pos, const double rhill);
 
 /**
  * @brief Calculates the Jacobi energy. 
