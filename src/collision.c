@@ -847,7 +847,7 @@ struct reb_vec3d intersection(const struct reb_particle p1, const struct reb_par
 
 	double p1_dist = sqrt(p1.x*p1.x + p1.y*p1.y + p1.z*p1.z);
 	double p2_dist = sqrt(p2.x*p2.x + p2.y*p2.y + p2.z*p2.z);
-  double ux = 0, uy = 0, uz = 0;
+  	double ux = 0, uy = 0, uz = 0;
 
 	if (p2_dist > p1_dist) {
 		ux = -u.x*p1.r;
@@ -876,8 +876,8 @@ double effective_coefficient_of_restitution(const double eps_n, const double vel
 	return sqrt((eps_n*eps_n*vel_n + eps_t*eps_t*vel_t) / (vel_impact));
 }
 
-struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const double rhill) {
-	// Converts barycentric coordinates to Hill coordinates
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p) {
+	// Converts barycentric coordinates -> cylindrical coordinates -> Hill coordinates
 	struct reb_vec3d hill_coords = {0};
 	double radius = sqrt(p.x*p.x + p.y*p.y);
 	double theta = atan2(p.y, p.x);
@@ -890,53 +890,50 @@ struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struc
 }
 
 struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, 
-										 const struct reb_vec3d hill_pos, const double rhill) {
-    // Clean this up. Create variables instead of a lot of dereferences
+										 const struct reb_vec3d hill_pos) {
 	// Converts velocity from barycentric to Hill units
 	struct reb_vec3d vel_hill = {0};
 	double tau = 0.0, omega = 0.0; 
+	double ref_dist = r->ref_dist, kepler_ang = r->kepler_ang, t = r->t;
 	struct reb_orbit o = reb_tools_particle_to_orbit(r->G, p, r->particles[0]);
-	tau = -acos(((o.a-r->ref_dist) - hill_pos.x) / (o.e*r->ref_dist)) + r->kepler_ang*r->t;
-	omega = -asin(hill_pos.z / (o.inc*r->ref_dist)) + r->kepler_ang*r->t;
 
-	vel_hill.x = o.e*r->ref_dist*r->kepler_ang*sin(r->kepler_ang*r->t - tau);
-	vel_hill.y = r->kepler_ang * (-3/2*(o.a-r->ref_dist) + 2*o.e*r->ref_dist*cos(r->kepler_ang*r->t - tau));
-	vel_hill.z = o.inc*r->ref_dist*r->kepler_ang*cos(r->kepler_ang - omega);
+	tau = -acos(((o.a - ref_dist) - hill_pos.x) / (o.e*ref_dist)) + kepler_ang*t;
+	omega = -asin(hill_pos.z / (o.inc*ref_dist)) + kepler_ang*t;
+
+	vel_hill.x = o.e*ref_dist*kepler_ang*sin(kepler_ang*t - tau);
+	vel_hill.y = kepler_ang * (-3/2*(o.a - ref_dist) + 2*o.e*ref_dist*cos(kepler_ang*t - tau));
+	vel_hill.z = o.inc*ref_dist*kepler_ang*cos(kepler_ang*t - omega);
 
 	return vel_hill;
 }
 
 double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist) {
-	// Hacky was to calculate impact point in Hill coordinates
-	// involving making that point a particle structure
+	const double rhill = hill_radius(p1, p2, particles[0]);
 	struct reb_particle* const particles = r->particles;
 	struct reb_particle p1 = particles[c.p1];
 	struct reb_particle p2 = particles[c.p2];
 	struct reb_particle p_int = {0};
-	//printf("p1 %.e, %.e, %.e\n", p1.x, p1.y, p1.z);
-	//printf("p2 %.e, %.e, %.e\n", p2.x, p2.y, p2.z);
-	const double rhill = hill_radius(p1, p2, particles[0]);
 	struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2);
-	struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
-	struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
 	struct reb_vec3d intersect_pt = intersection(p1, p2);
-	p_int.x = intersect_pt.x;
+	p_int.x = intersect_pt.x; // Hill coordinate function only takes particle structs
 	p_int.y = intersect_pt.y;
 	p_int.z = intersect_pt.z;
+	struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
+	struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
 
 	// Calculate point of intersection and particle velocities in Hill coordinates
-	struct reb_vec3d pos_int = barycentric_to_hill(r, p_int, rhill); 
-	struct reb_vec3d pos1 = barycentric_to_hill(r, p1, rhill);
-	struct reb_vec3d pos2 = barycentric_to_hill(r, p2, rhill);
-	struct reb_vec3d vp1 = vel_barycentric_to_hill(r, p1, pos1, rhill);
-	struct reb_vec3d vp2 = vel_barycentric_to_hill(r, p2, pos2, rhill);
+	struct reb_vec3d pos_int = barycentric_to_hill(r, p_int); 
+	struct reb_vec3d pos1 = barycentric_to_hill(r, p1);
+	struct reb_vec3d pos2 = barycentric_to_hill(r, p2);
+	struct reb_vec3d vp1 = vel_barycentric_to_hill(r, p1, pos1);
+	struct reb_vec3d vp2 = vel_barycentric_to_hill(r, p2, pos2);
 	double e_jacobi = 0.0;
 	double dvx = vp1.x - vp2.x;
 	double dvy = vp1.y - vp2.y; 
 	double dvz = vp1.z - vp2.z;
 	double vel_impact = dvx*dvx + dvy*dvy + dvz*dvz;
 
-	// Calculate normal and tangential velocitites
+	// Calculate normal and tangential velocitites need to calculate effective coefficient of restitution
 	double vel_dot_unit = dvx*intersect_unit.x + dvy*intersect_unit.y + dvz*intersect_unit.z; 
 	veln.x = vel_dot_unit * intersect_unit.x;
 	veln.y = vel_dot_unit * intersect_unit.y;
