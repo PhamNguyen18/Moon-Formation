@@ -881,6 +881,7 @@ struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struc
 	struct reb_vec3d hill_coords = {0};
 	double radius = sqrt(p.x*p.x + p.y*p.y);
 	double theta = atan2(p.y, p.x);
+	printf("Theta: %.4e\n", theta);
 
 	hill_coords.x = radius - r->ref_dist; 
 	hill_coords.y = r->ref_dist * (theta - r->kepler_ang*r->t);
@@ -908,10 +909,10 @@ struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const s
 }
 
 double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist) {
-	const double rhill = hill_radius(p1, p2, particles[0]);
 	struct reb_particle* const particles = r->particles;
 	struct reb_particle p1 = particles[c.p1];
 	struct reb_particle p2 = particles[c.p2];
+	const double rhill = hill_radius(p1, p2, particles[0]);
 	struct reb_particle p_int = {0};
 	struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2);
 	struct reb_vec3d intersect_pt = intersection(p1, p2);
@@ -920,6 +921,7 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	p_int.z = intersect_pt.z;
 	struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
 	struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
+	double ang_const = r->ref_dist * rhill * r->kepler_ang;
 
 	// Calculate point of intersection and particle velocities in Hill coordinates
 	struct reb_vec3d pos_int = barycentric_to_hill(r, p_int); 
@@ -928,10 +930,10 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	struct reb_vec3d vp1 = vel_barycentric_to_hill(r, p1, pos1);
 	struct reb_vec3d vp2 = vel_barycentric_to_hill(r, p2, pos2);
 	double e_jacobi = 0.0;
-	double dvx = vp1.x - vp2.x;
-	double dvy = vp1.y - vp2.y; 
-	double dvz = vp1.z - vp2.z;
-	double vel_impact = dvx*dvx + dvy*dvy + dvz*dvz;
+	double dvx = (vp1.x - vp2.x)/ang_const;
+	double dvy = (vp1.y - vp2.y)/ang_const; 
+	double dvz = (vp1.z - vp2.z)/ang_const;
+	double vel_impact = (dvx*dvx + dvy*dvy + dvz*dvz);
 
 	// Calculate normal and tangential velocitites need to calculate effective coefficient of restitution
 	double vel_dot_unit = dvx*intersect_unit.x + dvy*intersect_unit.y + dvz*intersect_unit.z; 
@@ -945,9 +947,10 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	double veln_tot = veln.x*veln.x + veln.y*veln.y + veln.z*veln.z; 
 
 	double eps = effective_coefficient_of_restitution(r->eps_n, r->eps_t, veln_tot, velt_tot, vel_impact);
+	printf("Epsilon: %.4e \n", eps);
 
 	// Check coefficient of resitution set up
-	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos_int.x*pos_int.x + 1/2*pos_int.z*pos_int.z - 3/((p1.r + p2.r)/rhill) + 9/2;
+	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos_int.x*pos_int.x + 1/2*pos_int.z*pos_int.z - 3/((p1.r + p2.r)/(r->ref_dist * rhill)) + 9/2;
 
 	return e_jacobi;	
 }

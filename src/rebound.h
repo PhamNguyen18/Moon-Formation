@@ -1340,7 +1340,7 @@ double effective_coefficient_of_restitution(const double eps_n, const double vel
  * @return Hill coordinates of the particle.
  */
 
-struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const double rhill);
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p);
 
 /**
  * @brief Converts the velocity of a particle in barycentric coordinates to Hill.
@@ -1350,7 +1350,7 @@ struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struc
  * @param rhill The Hill radius for the system.
  * @return Velocity in the Hill coordinate system. 
  */
-struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const struct reb_vec3d hill_pos, const double rhill);
+struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, const struct reb_vec3d hill_pos);
 
 /**
  * @brief Calculates the Jacobi energy. 

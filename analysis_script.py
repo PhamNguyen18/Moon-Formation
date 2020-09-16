@@ -50,6 +50,7 @@ class ReboundAnalysis:
         self.J_EM = J_EM if J_EM is not None else J_EM  # MKS 
         self.rho = rho if rho is not None else rho  # g 
         self.rho0 = rho0 if rho0 is not None else rho0  # g 
+        self.roche = 2.456*(self.rho/self.rho0)**(1/3)*self.r_earth
 
 
     @staticmethod
@@ -64,9 +65,8 @@ class ReboundAnalysis:
 
     def roche_radius(self):
         # Calculates the roche radius for a given density and object radius.
-        return 2.456*(self.rho/self.rho0)**(1/3)*self.r_earth
-
-    roche = roche_radius()
+        self.roche = 2.456*(self.rho/self.rho0)**(1/3)*self.r_earth
+        return None
 
     def angular_momentum(self, p, flag="particle", mi=1):
         """
@@ -458,6 +458,7 @@ if __name__ == "__main__":
                              help='Time for plotting and analysis')
     args = parser.parse_args()
 
-    t = np.linspace(0, 50*25200, 1000) 
+    t = np.array([0, 25, 40]) 
     sim = ReboundAnalysis(args.file_name, args.time)
-    sim.plot_orbs(t, "Ida9_test_newradius_363_Massive", 150, False)
+    #sim.plot_orbs(t, "Ida9_test_newradius_363_Massive", 150, False)
+    sim.make_video("test", "test", "Tidal merging 1500 particles")
