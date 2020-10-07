@@ -262,13 +262,14 @@ class ReboundAnalysis:
 
         # Annotate any masses that are greater than 30% a lunar mass as in Ida
         # This should actually be 30% of the largest luanr seed that is formed
+        """
         for i, m in enumerate(masses):
             if m > 0.3*masses[1]:
                 m_label =  str(round(masses[i], 3)) + r"$M_L$"
                 ax[2].annotate(m_label, xy=(r_coords[2][i]*1.05, z_coords[2][i]*1.05), size=14)
             else:
                 continue
-
+        """
         if show:
             plt.tight_layout()
             plt.show()
@@ -460,5 +461,5 @@ if __name__ == "__main__":
 
     t = np.array([0, 25, 40]) 
     sim = ReboundAnalysis(args.file_name, args.time)
-    #sim.plot_orbs(t, "Ida9_test_newradius_363_Massive", 150, False)
-    sim.make_video("test", "test", "Tidal merging 1500 particles")
+    sim.plot_orbs(t, "Ida9_test_newradius_363_Massive", 150, True)
+    #sim.make_video("test", "test", "Tidal merging 1500 particles")

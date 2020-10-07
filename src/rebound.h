@@ -908,8 +908,7 @@ struct reb_simulation {
     double roche_limit;                 ///< Roche limit for system used for tidal merging routine.
     double eps_t;                       ///< Coefficient of restitution in the tangential direction.
     double eps_n;                       ///< Coefficient of restitution in the normal direction.
-    double kepler_ang;                  ///< Angular velocity 
-    double ref_dist;                    ///< Reference distance needed for Hill coordinates
+    //double kepler_ang;                  ///< Angular velocity 
     /** @} */
 
     /**
@@ -1319,7 +1318,7 @@ struct reb_vec3d intersection(const struct reb_particle p1, const struct reb_par
  * @param primary Struct for central mass particle.
  * @return The Hill radius.
  */
-double hill_radius(const struct reb_particle p1, const struct reb_particle p2, const struct reb_particle primary);
+double hill_radius(const struct reb_particle p1, const struct reb_particle p2, const struct reb_particle primary, double ref_dist);
 
 /**
  * @brief Calculates the effective coefficient of restitution
@@ -1340,7 +1339,7 @@ double effective_coefficient_of_restitution(const double eps_n, const double vel
  * @return Hill coordinates of the particle.
  */
 
-struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p);
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_vec3d p, const double ref_dist, const double kepler_ang);
 
 /**
  * @brief Converts the velocity of a particle in barycentric coordinates to Hill.
@@ -1359,7 +1358,7 @@ struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const s
  * @param ref_dist Reference distance to place the origin of the Hill coordinates.
  * @return The Jacobi energy. 
  */
-double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist);
+double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist, double kepler_ang);
 
 /**
  * @brief Merging collision resolving routine that includes tidal interaction

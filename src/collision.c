@@ -868,28 +868,59 @@ struct reb_vec3d intersection(const struct reb_particle p1, const struct reb_par
 	return int_pt;
 }
 
-double hill_radius(const struct reb_particle p1, const struct reb_particle p2, const struct reb_particle primary) {
-	return pow((p1.m + p2.m)/(3*primary.m), 1.0/3.0);
+double hill_radius(const struct reb_particle p1, const struct reb_particle p2, const struct reb_particle primary, 
+				   double ref_dist) {
+	return ref_dist*pow((p1.m + p2.m)/(3*primary.m), 1.0/3.0);
 }
 
 double effective_coefficient_of_restitution(const double eps_n, const double vel_n, const double eps_t, const double vel_t, const double vel_impact) {
 	return sqrt((eps_n*eps_n*vel_n + eps_t*eps_t*vel_t) / (vel_impact));
 }
 
-struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p) {
+struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struct reb_vec3d p, const double ref_dist, double kepler_ang) {
 	// Converts barycentric coordinates -> cylindrical coordinates -> Hill coordinates
+	struct reb_particle* const particles = r->particles;
+	struct reb_particle pe = particles[0];
 	struct reb_vec3d hill_coords = {0};
 	double radius = sqrt(p.x*p.x + p.y*p.y);
 	double theta = atan2(p.y, p.x);
-	printf("Theta: %.4e\n", theta);
+	double theta_e = atan2(pe.y, pe.x); // angular position of central body (Earth)
+	double dtheta = 0.0; 
 
-	hill_coords.x = radius - r->ref_dist; 
-	hill_coords.y = r->ref_dist * (theta - r->kepler_ang*r->t);
+	// Difference in angular position of central body from pi
+	
+	if (theta_e < 0) {
+		dtheta = theta_e;
+	} else {
+		dtheta = M_PI - theta_e;
+	}
+
+	// Transform theta particle so that central body has theta = pi
+	if (theta > 0) {
+		theta = theta + dtheta;
+		if (theta > M_PI || theta < 0)
+			theta = -fmod(theta, M_PI);
+	} else {
+		if (dtheta < 0) {
+			if (theta < dtheta)
+				theta = theta - dtheta;
+			else 
+				theta = M_PI - (theta - dtheta);
+		} else {
+			theta = theta - dtheta;
+			if (theta < -M_PI)
+				theta = -(theta + M_PI);
+		}
+	}
+
+	hill_coords.x = radius - ref_dist; 
+	hill_coords.y = ref_dist * (theta - kepler_ang*r->t); // Range from -pi to pi?
 	hill_coords.z = p.z;
 
 	return hill_coords;
 }
 
+/*
 struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const struct reb_particle p, 
 										 const struct reb_vec3d hill_pos) {
 	// Converts velocity from barycentric to Hill units
@@ -907,35 +938,37 @@ struct reb_vec3d vel_barycentric_to_hill(struct reb_simulation* const r, const s
 
 	return vel_hill;
 }
+*/
 
-double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist) {
+double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, const double ref_dist, double kepler_ang) {
 	struct reb_particle* const particles = r->particles;
 	struct reb_particle p1 = particles[c.p1];
 	struct reb_particle p2 = particles[c.p2];
-	const double rhill = hill_radius(p1, p2, particles[0]);
-	struct reb_particle p_int = {0};
-	struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2);
-	struct reb_vec3d intersect_pt = intersection(p1, p2);
-	p_int.x = intersect_pt.x; // Hill coordinate function only takes particle structs
-	p_int.y = intersect_pt.y;
-	p_int.z = intersect_pt.z;
-	struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
-	struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
-	double ang_const = r->ref_dist * rhill * r->kepler_ang;
+	//struct reb_particle p_int = {0}; // Hill coordinate function only takes particle structs
+	//struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2); // Unit vector needed for velocity components
+	double rhill = hill_radius(p1, p2, particles[0], ref_dist);
+	double ang_const = rhill * kepler_ang;
+	struct reb_vec3d pt_int = intersection(p1, p2);
+
+	//struct reb_vec3d veln = {0}; // Normal velocity needed for coefficient of restitution
+	//struct reb_vec3d velt = {0}; // Tangential velocity needed for coefficient of restitution
 
 	// Calculate point of intersection and particle velocities in Hill coordinates
-	struct reb_vec3d pos_int = barycentric_to_hill(r, p_int); 
-	struct reb_vec3d pos1 = barycentric_to_hill(r, p1);
-	struct reb_vec3d pos2 = barycentric_to_hill(r, p2);
-	struct reb_vec3d vp1 = vel_barycentric_to_hill(r, p1, pos1);
-	struct reb_vec3d vp2 = vel_barycentric_to_hill(r, p2, pos2);
+	//struct reb_vec3d pos1 = barycentric_to_hill(r, p1);
+	//struct reb_vec3d pos2 = barycentric_to_hill(r, p2);
 	double e_jacobi = 0.0;
-	double dvx = (vp1.x - vp2.x)/ang_const;
-	double dvy = (vp1.y - vp2.y)/ang_const; 
-	double dvz = (vp1.z - vp2.z)/ang_const;
+	struct reb_vec3d hill_int = barycentric_to_hill(r, pt_int, ref_dist, kepler_ang); 
+	hill_int.x = hill_int.x / rhill; 
+	hill_int.y = hill_int.y / rhill;
+	hill_int.z = hill_int.z / rhill;
+	double dvx = (p1.vx - p2.vx)/ang_const;
+	double dvy = (p1.vy - p2.vy)/ang_const; 
+	double dvz = (p1.vz - p2.vz)/ang_const;
 	double vel_impact = (dvx*dvx + dvy*dvy + dvz*dvz);
 
-	// Calculate normal and tangential velocitites need to calculate effective coefficient of restitution
+	// Calculate normal and tangential velocitites needed to calculate effective coefficient of restitution
+	// This should be checked for correctness!
+	/*
 	double vel_dot_unit = dvx*intersect_unit.x + dvy*intersect_unit.y + dvz*intersect_unit.z; 
 	veln.x = vel_dot_unit * intersect_unit.x;
 	veln.y = vel_dot_unit * intersect_unit.y;
@@ -945,40 +978,64 @@ double jacobi_energy(struct reb_simulation* const r, struct reb_collision c, con
 	velt.z = dvx - veln.z;
 	double velt_tot = velt.x*velt.x + velt.y*velt.y + velt.z*velt.z;
 	double veln_tot = veln.x*veln.x + veln.y*veln.y + veln.z*veln.z; 
+	printf("Calc vtot: %.4e \n", sqrt(velt_tot*velt_tot + veln_tot*veln_tot));
+	printf("vtot: %.4e \n", vel_impact);
 
 	double eps = effective_coefficient_of_restitution(r->eps_n, r->eps_t, veln_tot, velt_tot, vel_impact);
 	printf("Epsilon: %.4e \n", eps);
+	*/
+	double eps = 0.5; // hard coded for now
+	//printf("Eps: %.4e\n", eps);
 
 	// Check coefficient of resitution set up
-	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*pos_int.x*pos_int.x + 1/2*pos_int.z*pos_int.z - 3/((p1.r + p2.r)/(r->ref_dist * rhill)) + 9/2;
+	e_jacobi = 0.5*vel_impact*vel_impact*eps*eps - 3/2*hill_int.x*hill_int.x + 1/2*hill_int.z*hill_int.z - 3/((p1.r + p2.r)/rhill) + 9/2;
 
 	return e_jacobi;	
 }
 
 int reb_collision_resolve_tidal(struct reb_simulation* const r, struct reb_collision c) {
 	/*
-	Determine if a merger occurs that includes the influence of tidal forces. 
+	Merging routine that includes tidal interactions between lunar seeds.
 	Underlying logic:
 		1. Calculate the Jacobi energy
 		2. If the Jacobi energy < 0, merge using standard merge routine
 		3. If Jacobi energy > 0, use hardsphere routine instead
-
+	Merge if particle collides with Earth. 
 	This *should* reduce the rate of accretion in the disk allowing for the 
 	particle disk to persist longer. 
 	*/
 
-	// Check Jacobi energy
-	double e_jacobi = jacobi_energy(r, c, r->roche_limit);
 	int int_merge; 	
-
-	if (e_jacobi < 0) {
-		// merge
+	if (c.p1 == 0 || c.p2 == 0) { // Check if Earth is one of the colliding particles (particle index = 0)
 		int_merge = reb_collision_resolve_merge(r, c);
-		printf("Merger occured! ej=%.4e t=%f N=%i\n", e_jacobi, r->t/25200, r->N); // Keplerian time is hard coded, change this later
-	} else {
-		// hardsphere 
-		int_merge = reb_collision_resolve_hardsphere(r, c);
-		//printf("No merger, bounced instead! ej=%.4e t=%f\n", e_jacobi, r->t/25200);
+		printf("Merged with Earth %i \n", r->N_active);
+	} else { // Tidal merging routine begins here
+		struct reb_particle* const particles = r->particles;
+		struct reb_particle p1 = particles[c.p2];
+		struct reb_particle p2 = particles[c.p1];
+		//struct reb_particle com = reb_get_com_of_pair(p1, p2);
+		// const double ref_dist = sqrt(com.x*com.x + com.y*com.y + com.z*com.z);
+
+		//struct reb_particle p_int = {0}; // Hill coordinate function only takes particle structs
+		//struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2); // Unit vector needed for velocity components
+		struct reb_vec3d intersect_pt = intersection(p1, p2);
+		const double ref_dist = sqrt(intersect_pt.x*intersect_pt.x + intersect_pt.y*intersect_pt.y + intersect_pt.z*intersect_pt.z);
+		//double rhill = hill_radius(p1, p2, particles[0], ref_dist);
+		//p_int.x = intersect_pt.x / rhill; 
+		//p_int.y = intersect_pt.y / rhill;
+		//p_int.z = intersect_pt.z / rhill;
+
+
+		double kepler_ang = sqrt((r->G*5.9722e24)/pow(ref_dist, 1.0/3.0));
+		double e_jacobi = jacobi_energy(r, c, ref_dist, kepler_ang);
+
+		if (e_jacobi < 0) {
+			int_merge = reb_collision_resolve_merge(r, c);
+			printf("Merger occured! ej=%.4e t=%f N=%i\n", e_jacobi, r->t/25200, r->N); // Keplerian time is hard coded, change this later
+		} else {
+			int_merge = reb_collision_resolve_hardsphere(r, c);
+			printf("No merger, bounced instead! ej=%.4e t=%f\n", e_jacobi, r->t/25200);
+		}
 	}
 
 	return int_merge;
