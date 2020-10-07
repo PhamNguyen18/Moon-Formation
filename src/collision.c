@@ -1013,18 +1013,8 @@ int reb_collision_resolve_tidal(struct reb_simulation* const r, struct reb_colli
 		struct reb_particle* const particles = r->particles;
 		struct reb_particle p1 = particles[c.p2];
 		struct reb_particle p2 = particles[c.p1];
-		//struct reb_particle com = reb_get_com_of_pair(p1, p2);
-		// const double ref_dist = sqrt(com.x*com.x + com.y*com.y + com.z*com.z);
-
-		//struct reb_particle p_int = {0}; // Hill coordinate function only takes particle structs
-		//struct reb_vec3d intersect_unit = intersection_unit_vector(p1, p2); // Unit vector needed for velocity components
-		struct reb_vec3d intersect_pt = intersection(p1, p2);
-		const double ref_dist = sqrt(intersect_pt.x*intersect_pt.x + intersect_pt.y*intersect_pt.y + intersect_pt.z*intersect_pt.z);
-		//double rhill = hill_radius(p1, p2, particles[0], ref_dist);
-		//p_int.x = intersect_pt.x / rhill; 
-		//p_int.y = intersect_pt.y / rhill;
-		//p_int.z = intersect_pt.z / rhill;
-
+		struct reb_particle com = reb_get_com_of_pair(p1, p2);
+		const double ref_dist = sqrt(com.x*com.x + com.y*com.y + com.z*com.z);
 
 		double kepler_ang = sqrt((r->G*5.9722e24)/pow(ref_dist, 1.0/3.0));
 		double e_jacobi = jacobi_energy(r, c, ref_dist, kepler_ang);
