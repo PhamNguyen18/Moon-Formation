@@ -913,8 +913,11 @@ struct reb_vec3d barycentric_to_hill(struct reb_simulation* const r, const struc
 		}
 	}
 
+	theta = fmod(theta - kepler_ang*r->t, 2*M_PI);
+	if (theta > M_PI) 
+		theta = -(theta - M_PI);
 	hill_coords.x = radius - ref_dist; 
-	hill_coords.y = ref_dist * (theta - kepler_ang*r->t); // Range from -pi to pi?
+	hill_coords.y = ref_dist * theta;
 	hill_coords.z = p.z;
 
 	return hill_coords;
