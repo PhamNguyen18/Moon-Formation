@@ -459,7 +459,7 @@ if __name__ == "__main__":
                              help='Time for plotting and analysis')
     args = parser.parse_args()
 
-    t = np.array([0, 25, 40]) 
+    t = np.array([0, 5, 5]) 
     sim = ReboundAnalysis(args.file_name, args.time)
     sim.plot_orbs(t, "Ida9_test_newradius_363_Massive", 150, True)
     #sim.make_video("test", "test", "Tidal merging 1500 particles")
