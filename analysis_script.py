@@ -40,16 +40,16 @@ class ReboundAnalysis:
         self.time = time
         self.sim = rebound.SimulationArchive(file)
         self.sim_time = self.sim.getSimulation(time)
-        self.t_kepler = t_kepler if t_kepler is not None else t_kepler
-        self.dt = dt if dt is not None else dt 
+        self.t_kepler = t_kepler 
+        self.dt = dt 
 
         # Planetary constants
-        self.r_earth = r_earth if r_earth is not None else r_earth  # m
-        self.m_earth = m_earth if m_earth is not None else m_earth  # Kg
-        self.m_lunar = m_lunar if m_lunar is not None else m_lunar
-        self.J_EM = J_EM if J_EM is not None else J_EM  # MKS 
-        self.rho = rho if rho is not None else rho  # g 
-        self.rho0 = rho0 if rho0 is not None else rho0  # g 
+        self.r_earth = r_earth 
+        self.m_earth = m_earth 
+        self.m_lunar = m_lunar 
+        self.J_EM = J_EM 
+        self.rho = rho 
+        self.rho0 = rho0 
         self.roche = 2.456*(self.rho/self.rho0)**(1/3)*self.r_earth
 
 
